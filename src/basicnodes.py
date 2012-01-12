@@ -1,10 +1,9 @@
 '''
-Created on Dec 22, 2011
+Created on Jan 12, 2012
 
 @author: arnaud
 '''
 import numpy
-from utils import sparseReservoirMatrix
 
 class identity:
     def __call__(self, x):
@@ -37,6 +36,7 @@ class Node:
 class InputNode(Node):
     def __init__(self, input_dim):
         Node.__init__(self, input_dim=input_dim, output_dim=input_dim)
+        self.activation = identity()
         
     def _execute(self, input):
         self.state = input
@@ -44,35 +44,7 @@ class InputNode(Node):
     
     def is_trainable(self):
         return False
-
-class FeaturesNode(Node):
-    def __init__(self, input_dim, output_dim):
-        Node.__init__(self, input_dim=input_dim, output_dim=output_dim)
-        self.activation = identity()  
-        self.W = numpy.random.rand(input_dim, output_dim)
-               
-    def _execute(self, input):
-        self.state = numpy.dot(input, self.W)
-        return self.state
-
-class ReservoirNode(Node):
-    def __init__(self, input_dim, output_dim, activation = tanh(), dtype=None):
-        Node.__init__(self, input_dim=input_dim, output_dim=output_dim)  
-        self.activation = activation
-
-        self.W_in = 1. * (numpy.random.randint(0, 2, (input_dim, output_dim)) * 2 - 1)
-        self.b = numpy.zeros((output_dim,)) 
-        self.W = sparseReservoirMatrix((output_dim, output_dim), 0.27)
-        
-        self.state = numpy.zeros((output_dim,))
-                
-    def _execute(self, input):
-        self.state = self.activation(numpy.dot(input, self.W_in) + self.b + numpy.dot(self.state, self.W))
-        return self.state
     
-    def is_trainable(self):
-        return False
-
 class HiddenLayerNode(Node):
     def __init__(self, input_dim, output_dim, activation = tanh(), dtype=None):
         Node.__init__(self, input_dim=input_dim, output_dim=output_dim)  
@@ -82,26 +54,13 @@ class HiddenLayerNode(Node):
                 low  = - numpy.sqrt(6./(input_dim+output_dim)),
                 high = numpy.sqrt(6./(input_dim+output_dim)),
                 size = (input_dim, output_dim)))
-
+        
         self.b = numpy.zeros((output_dim,))
         
     def _execute(self, input):
         self.state = self.activation(numpy.dot(input, self.W) + self.b)
         return self.state
 
-class PerceptronNode(HiddenLayerNode):
-    def __init__(self, input_dim, output_dim, activation=identity(), dtype=None):
-        HiddenLayerNode.__init__(self, input_dim=input_dim, output_dim=output_dim, activation=identity(), dtype=dtype)
-
-class LinearLayerNode(PerceptronNode):
-    pass
-
-class SoftMaxNode(Node):
-    def _execute(self, input):
-        input = numpy.exp(input)
-        self.state = input/numpy.array([numpy.sum(input, axis=1)]).T 
-        return self.state
-    
 class FlowNode(Node):
     def __init__(self, nodes_list):
         self.nodes_list = nodes_list
@@ -137,10 +96,8 @@ class GradientDescentModule:
 if __name__=='__main__':
     
     inp = InputNode(input_dim=2)
-#    fea = FeaturesNode(input_dim=inp.output_dim, output_dim=5)
     hid1 = HiddenLayerNode(input_dim=inp.output_dim, output_dim=2)
-#    hid2 = HiddenLayerNode(input_dim=hid1.output_dim, output_dim=15)
-    lin = LinearLayerNode(input_dim=hid1.output_dim, output_dim=1)
+    lin = HiddenLayerNode(input_dim=hid1.output_dim, output_dim=1, activation=identity())
     
     flow = [inp, hid1, lin]
     flownode = FlowNode(flow)
@@ -156,6 +113,3 @@ if __name__=='__main__':
             gradmod.update(numpy.array(X[i]),numpy.array(Y[i]))
         
     print flownode.execute(numpy.array(X))
-        
-
-                
