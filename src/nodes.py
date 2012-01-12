@@ -82,6 +82,11 @@ class HiddenLayerNode(Node):
                 low  = - numpy.sqrt(6./(input_dim+output_dim)),
                 high = numpy.sqrt(6./(input_dim+output_dim)),
                 size = (input_dim, output_dim)))
+        
+#        self.W = numpy.asarray( numpy.random.uniform(
+#                low  = - 1./numpy.sqrt(max(input_dim,output_dim)),
+#                high = 1./numpy.sqrt(max(input_dim,output_dim)),
+#                size = (input_dim, output_dim)))
 
         self.b = numpy.zeros((output_dim,))
         
@@ -117,11 +122,12 @@ class GradientDescentModule:
         self.flownode = flownode
     
     def update(self, input, target):
-        self.flownode.execute(input)
-        self._update(target)
+        for i in range(input.shape[0]):
+            self.flownode.execute(input[i])
+            self._update(target[i])
      
     def _update(self, target):
-        lr = 0.1
+        lr = 0.01
         error = self.flownode.nodes_list[-1].state - target
         for i in range(len(self.flownode.nodes_list)-1, 0, -1):
             node = self.flownode.nodes_list[i]
@@ -138,24 +144,26 @@ if __name__=='__main__':
     
     inp = InputNode(input_dim=2)
 #    fea = FeaturesNode(input_dim=inp.output_dim, output_dim=5)
-    hid1 = HiddenLayerNode(input_dim=inp.output_dim, output_dim=2)
-#    hid2 = HiddenLayerNode(input_dim=hid1.output_dim, output_dim=15)
-    lin = LinearLayerNode(input_dim=hid1.output_dim, output_dim=1)
+    hid = HiddenLayerNode(input_dim=inp.output_dim, output_dim=200)
+    lin = LinearLayerNode(input_dim=hid.output_dim, output_dim=1)
     
-    flow = [inp, hid1, lin]
+    flow = [inp, hid, lin]
     flownode = FlowNode(flow)
     gradmod = GradientDescentModule(flownode)
     
     X = [[0,0],[0,1],[1,0],[1,1]]
     Y = [0,1,1,0]
     
+    e = []
+    for t in range(5000):
+        gradmod.update(numpy.array(X),numpy.array(Y))
+        e.append(numpy.sum((flownode.execute(numpy.array(X))-numpy.c_[Y])**2))
+    
     print flownode.execute(numpy.array(X))
     
-    for t in range(10000):
-        for i in range(0, len(X)):
-            gradmod.update(numpy.array(X[i]),numpy.array(Y[i]))
-        
-    print flownode.execute(numpy.array(X))
+    import pylab
+    pylab.plot(e)
+    pylab.show()
         
 
                 
